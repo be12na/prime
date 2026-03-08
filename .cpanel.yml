@@ -1,0 +1,15 @@
+---
+# cPanel Git Version Control - Deployment Configuration
+# PENTING: Ganti DEPLOYPATH di bawah dengan path document root domain Anda.
+# Contoh umum:
+#   /home/USERNAME/prime2.cepat.digital
+#   /home/USERNAME/public_html
+#   /home/USERNAME/public_html/prime2
+# Cek di cPanel > Domains untuk melihat document root yang benar.
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/egxvvhji/prime2.cepat.digital
+    - /bin/mkdir -p $DEPLOYPATH/assets
+    - /bin/cp -f dist/index.html $DEPLOYPATH/index.html
+    - /bin/cp -f dist/.htaccess $DEPLOYPATH/.htaccess
+    - /bin/cp -Rf dist/assets/* $DEPLOYPATH/assets/
