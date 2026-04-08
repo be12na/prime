@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-export type GeminiModelProfile = "flash" | "pro" | "ultra" | "balanced";
+export type GeminiModelProfile = "flash" | "pro" | "ultra" | "balanced" | "api-default";
 
 export interface GenerationOptions {
   model?: string;
@@ -55,8 +55,9 @@ export class GeminiAppError extends Error {
 
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_RETRIES = 2;
+const API_MODEL_STORAGE_KEY = "geminiApiModel";
 
-const MODEL_PROFILES: Record<GeminiModelProfile, string[]> = {
+const MODEL_PROFILES: Record<Exclude<GeminiModelProfile, "api-default">, string[]> = {
   flash: ["gemini-2.5-flash", "gemini-2.0-flash-exp", "gemini-3-flash-preview"],
   pro: ["gemini-2.5-pro", "gemini-1.5-pro"],
   ultra: ["gemini-2.5-pro", "gemini-2.5-flash"],
@@ -64,6 +65,14 @@ const MODEL_PROFILES: Record<GeminiModelProfile, string[]> = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getConfiguredApiModel = (): string | undefined => {
+  if (typeof sessionStorage === "undefined") {
+    return undefined;
+  }
+  const savedModel = sessionStorage.getItem(API_MODEL_STORAGE_KEY)?.trim();
+  return savedModel || undefined;
+};
 
 const getRuntimeEnv = (): Record<string, string | undefined> => {
   const meta = import.meta as ImportMeta & { env?: Record<string, string | undefined> };
@@ -349,8 +358,17 @@ const resolveCandidateModels = (options: GenerationOptions): string[] => {
   if (options.models && options.models.length > 0) {
     return Array.from(new Set(options.models.map((m) => m.trim()).filter(Boolean)));
   }
-  const profile = options.profile ?? "flash";
-  return MODEL_PROFILES[profile];
+
+  const configuredModel = getConfiguredApiModel();
+  if (options.profile === "api-default") {
+    return configuredModel ? [configuredModel] : MODEL_PROFILES.flash;
+  }
+
+  if (options.profile) {
+    return MODEL_PROFILES[options.profile];
+  }
+
+  return configuredModel ? [configuredModel] : MODEL_PROFILES.flash;
 };
 
 export const generateGeminiContent = async (prompt: string, options: GenerationOptions = {}): Promise<string> => {
@@ -625,7 +643,7 @@ export const analyzePerformance = async (formData: any, options: GenerationOptio
 
 export const validateGeminiApiKey = async (
   key: string,
-  options: { profile?: GeminiModelProfile; timeoutMs?: number } = {}
+  options: { profile?: GeminiModelProfile; model?: string; timeoutMs?: number } = {}
 ): Promise<{ ok: boolean; status: "valid" | "invalid"; message: string; code?: string; statusCode?: number }> => {
   const trimmed = key.trim();
   if (!trimmed) {
@@ -637,7 +655,13 @@ export const validateGeminiApiKey = async (
     };
   }
 
-  const model = MODEL_PROFILES[options.profile ?? "flash"][0];
+  const configuredModel = getConfiguredApiModel();
+  const explicitModel = options.model?.trim();
+  const model =
+    explicitModel ||
+    (options.profile && options.profile !== "api-default" ? MODEL_PROFILES[options.profile][0] : undefined) ||
+    configuredModel ||
+    MODEL_PROFILES.flash[0];
   const ai = new GoogleGenAI({ apiKey: trimmed });
   const timeoutMs = Math.max(1_000, options.timeoutMs ?? 20_000);
 

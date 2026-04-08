@@ -20,10 +20,10 @@ const LiveStudio: React.FC = () => {
     const [errorMessage, setErrorMessage] = useState('');
     const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
         const saved = sessionStorage.getItem('liveModelProfile');
-        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+        if (saved === 'api-default' || saved === 'pro' || saved === 'ultra' || saved === 'flash') {
             return saved;
         }
-        return 'flash';
+        return 'api-default';
     });
     
     const [shoppingForm, setShoppingForm] = useState({
@@ -147,7 +147,7 @@ const LiveStudio: React.FC = () => {
         setIsPepTalkLoading(true);
         setPepTalk('');
         try {
-            const talk = await generatePepTalk(mentalForm.mood, mentalForm.reason);
+            const talk = await generatePepTalk(mentalForm.mood, mentalForm.reason, { profile: selectedModel });
             setPepTalk(talk);
         } catch (error) {
             const msg = getUserFriendlyErrorMessage(error);

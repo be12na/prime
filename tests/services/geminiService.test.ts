@@ -110,6 +110,38 @@ describe("geminiService", () => {
     );
   });
 
+  it("uses global API model when profile is api-default", async () => {
+    sessionStorage.setItem("geminiApiModel", "gemini-2.5-pro");
+    generateContentMock.mockResolvedValue({ text: "ok" });
+
+    await generateLaunchContent({ productName: "X" }, "product", {
+      profile: "api-default",
+      retries: 0,
+    });
+
+    expect(generateContentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gemini-2.5-pro",
+      })
+    );
+  });
+
+  it("uses explicit validation model when provided", async () => {
+    generateContentMock.mockResolvedValue({ text: "ok" });
+
+    const result = await validateGeminiApiKey("test-key", {
+      model: "gemini-2.5-flash",
+      profile: "api-default",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(generateContentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gemini-2.5-flash",
+      })
+    );
+  });
+
   it("uses parts fallback when response.text is empty", async () => {
     generateContentMock.mockResolvedValue({
       text: "",

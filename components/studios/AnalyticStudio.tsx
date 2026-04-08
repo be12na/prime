@@ -15,10 +15,10 @@ const AnalyticStudio: React.FC = () => {
     const [errorMessage, setErrorMessage] = useState('');
     const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
         const saved = sessionStorage.getItem('analyticModelProfile');
-        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+        if (saved === 'api-default' || saved === 'pro' || saved === 'ultra' || saved === 'flash') {
             return saved;
         }
-        return 'flash';
+        return 'api-default';
     });
     const [formState, setFormState] = useState({
         transcript: '',

@@ -79,7 +79,38 @@ export const BRAND_ROLES = [
 ];
 
 export const GEMINI_MODEL_OPTIONS = [
+  { value: 'api-default', label: 'Ikuti Pengaturan API' },
   { value: 'flash', label: 'Flash (Cepat)' },
   { value: 'pro', label: 'Pro (Kualitas Tinggi)' },
   { value: 'ultra', label: 'Ultra (Kualitas Maksimal)' },
+];
+
+export const GEMINI_API_MODEL_PRESETS = [
+  { value: 'gemini-2.5-flash', label: 'Text - gemini-2.5-flash (stabil, cepat)' },
+  { value: 'gemini-2.5-pro', label: 'Text - gemini-2.5-pro (stabil, kualitas tinggi)' },
+  { value: 'gemini-2.5-flash-lite', label: 'Text - gemini-2.5-flash-lite (hemat biaya)' },
+  { value: 'gemini-3-flash-preview', label: 'Text - gemini-3-flash-preview (preview)' },
+  { value: 'gemini-3.1-pro-preview', label: 'Text - gemini-3.1-pro-preview (preview)' },
+  { value: 'gemini-3.1-flash-lite-preview', label: 'Text - gemini-3.1-flash-lite-preview (preview)' },
+  { value: 'gemini-3.1-flash-live-preview', label: 'Audio/Live - gemini-3.1-flash-live-preview' },
+  { value: 'gemini-2.5-flash-native-audio-preview-12-2025', label: 'Audio/Live - gemini-2.5-flash-native-audio-preview-12-2025' },
+  { value: 'gemini-2.5-flash-preview-tts', label: 'Audio/TTS - gemini-2.5-flash-preview-tts' },
+  { value: 'gemini-2.5-pro-preview-tts', label: 'Audio/TTS - gemini-2.5-pro-preview-tts' },
+  { value: 'gemini-3.1-flash-image-preview', label: 'Image - gemini-3.1-flash-image-preview (Nano Banana 2)' },
+  { value: 'gemini-3-pro-image-preview', label: 'Image - gemini-3-pro-image-preview (Nano Banana Pro)' },
+  { value: 'gemini-2.5-flash-image', label: 'Image - gemini-2.5-flash-image (Nano Banana)' },
+  { value: 'imagen', label: 'Image - imagen (Imagen 4 alias)' },
+  { value: 'veo-3.1-generate-preview', label: 'Video - veo-3.1-generate-preview' },
+  { value: 'veo-3.1-lite-generate-preview', label: 'Video - veo-3.1-lite-generate-preview' },
+  { value: 'lyria-3-pro-preview', label: 'Music - lyria-3-pro-preview' },
+  { value: 'lyria-3-clip-preview', label: 'Music - lyria-3-clip-preview' },
+  { value: 'lyria-realtime-exp', label: 'Music - lyria-realtime-exp' },
+  { value: 'gemini-2.5-computer-use-preview-10-2025', label: 'Agent - gemini-2.5-computer-use-preview-10-2025' },
+  { value: 'deep-research-pro-preview-12-2025', label: 'Agent - deep-research-pro-preview-12-2025' },
+  { value: 'gemini-embedding-2-preview', label: 'Embedding - gemini-embedding-2-preview' },
+  { value: 'gemini-embedding-001', label: 'Embedding - gemini-embedding-001' },
+  { value: 'gemini-robotics-er-1.5-preview', label: 'Robotics - gemini-robotics-er-1.5-preview' },
+  { value: 'gemini-2.0-flash', label: 'Deprecated - gemini-2.0-flash' },
+  { value: 'gemini-2.0-flash-lite', label: 'Deprecated - gemini-2.0-flash-lite' },
+  { value: 'gemini-3-pro-preview', label: 'Shut down - gemini-3-pro-preview' },
 ];

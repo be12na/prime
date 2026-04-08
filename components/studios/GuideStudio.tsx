@@ -1,13 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { BRAND_ROLES } from '../../constants.ts';
+import { BRAND_ROLES, GEMINI_API_MODEL_PRESETS } from '../../constants.ts';
 import { validateGeminiApiKey } from '../../services/geminiService.ts';
 
 type BrandRole = 'produk' | 'kreator' | 'afiliasi';
+const CUSTOM_API_MODEL_VALUE = '__custom_model__';
 
 const GuideStudio: React.FC = () => {
     const [activeRole, setActiveRole] = useState<BrandRole>('produk');
     const [apiKey, setApiKey] = useState('');
+    const [apiModelSelection, setApiModelSelection] = useState<string>(GEMINI_API_MODEL_PRESETS[0].value);
+    const [customApiModel, setCustomApiModel] = useState('');
     const [apiKeyStatus, setApiKeyStatus] = useState<{ message: string; type: 'success' | 'info' | 'error' | 'warning' }>({ message: '', type: 'info' });
     const [quotaCheckStatus, setQuotaCheckStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid' | 'warning'>('idle');
 
@@ -22,6 +25,7 @@ const GuideStudio: React.FC = () => {
         const savedProfile = localStorage.getItem('brandProfile');
         const savedRole = localStorage.getItem('brandRole');
         const savedApiKey = sessionStorage.getItem('geminiApiKey');
+        const savedApiModel = (sessionStorage.getItem('geminiApiModel') || '').trim();
 
         if (savedProfile) {
             try {
@@ -37,15 +41,33 @@ const GuideStudio: React.FC = () => {
         if (savedApiKey) {
             setApiKey(savedApiKey);
         }
+        if (savedApiModel) {
+            const existsInPreset = GEMINI_API_MODEL_PRESETS.some((item) => item.value === savedApiModel);
+            if (existsInPreset) {
+                setApiModelSelection(savedApiModel);
+                setCustomApiModel('');
+            } else {
+                setApiModelSelection(CUSTOM_API_MODEL_VALUE);
+                setCustomApiModel(savedApiModel);
+            }
+        }
     }, []);
+
+    const selectedApiModel = (apiModelSelection === CUSTOM_API_MODEL_VALUE ? customApiModel : apiModelSelection).trim();
 
     const handleSaveApiKey = () => {
         const trimmedKey = apiKey.trim();
+        const trimmedModel = selectedApiModel;
         if (trimmedKey) {
             sessionStorage.setItem('geminiApiKey', trimmedKey);
+            if (trimmedModel) {
+                sessionStorage.setItem('geminiApiModel', trimmedModel);
+            } else {
+                sessionStorage.removeItem('geminiApiModel');
+            }
             setApiKeyStatus({ message: 'Kunci API berhasil disimpan untuk sesi ini!', type: 'success' });
             // Auto-trigger validation logic after save
-            validateApiKey(trimmedKey);
+            validateApiKey(trimmedKey, trimmedModel || undefined);
         } else {
             sessionStorage.removeItem('geminiApiKey');
             setApiKeyStatus({ message: 'Kunci API yang tersimpan telah dihapus.', type: 'info' });
@@ -54,15 +76,16 @@ const GuideStudio: React.FC = () => {
         setTimeout(() => setApiKeyStatus(prev => (prev.type === 'success' ? { ...prev, message: '' } : prev)), 4000);
     };
 
-    const validateApiKey = async (key: string) => {
+    const validateApiKey = async (key: string, model?: string) => {
         setQuotaCheckStatus('checking');
         setApiKeyStatus({ message: 'Memvalidasi kunci API dan jenis quota...', type: 'info' });
         
         try {
-            const result = await validateGeminiApiKey(key, { profile: 'flash' });
+            const result = await validateGeminiApiKey(key, { model, profile: 'api-default' });
             if (result.ok) {
                 setQuotaCheckStatus('valid');
-                setApiKeyStatus({ message: 'API Valid! Silakan verifikasi jenis quota Anda di bawah.', type: 'success' });
+                const modelInfo = model ? ` Model aktif: ${model}.` : '';
+                setApiKeyStatus({ message: `API Valid!${modelInfo} Silakan verifikasi jenis quota Anda di bawah.`, type: 'success' });
                 return;
             }
 
@@ -110,13 +133,37 @@ const GuideStudio: React.FC = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                             Pengaturan Kunci API
                         </h3>
-                        <div className="space-y-2 pt-2">
-                            <p className="text-sm text-slate-400 mb-4">
-                                Masukkan Kunci API Google AI Studio Anda. Kunci disimpan aman di sesi browser.
-                            </p>
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                <input
-                                    type="password"
+                            <div className="space-y-2 pt-2">
+                                <p className="text-sm text-slate-400 mb-4">
+                                    Masukkan Kunci API Google AI Studio Anda. Kunci disimpan aman di sesi browser.
+                                </p>
+                                <div className="space-y-3 mb-4">
+                                    <label htmlFor="api-model-select" className="block text-sm font-medium text-slate-300">Model API Gemini (Default Global)</label>
+                                    <select
+                                        id="api-model-select"
+                                        value={apiModelSelection}
+                                        onChange={(e) => setApiModelSelection(e.target.value)}
+                                        className="block w-full bg-slate-700/50 border-slate-600 rounded-md shadow-sm py-2.5 px-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition"
+                                    >
+                                        {GEMINI_API_MODEL_PRESETS.map((model) => (
+                                            <option key={model.value} value={model.value}>{model.label}</option>
+                                        ))}
+                                        <option value={CUSTOM_API_MODEL_VALUE}>Custom model ID</option>
+                                    </select>
+                                    {apiModelSelection === CUSTOM_API_MODEL_VALUE && (
+                                        <input
+                                            type="text"
+                                            value={customApiModel}
+                                            onChange={(e) => setCustomApiModel(e.target.value)}
+                                            className="block w-full bg-slate-700/50 border-slate-600 rounded-md shadow-sm py-2.5 px-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition"
+                                            placeholder="Contoh: gemini-2.5-flash-image-preview"
+                                        />
+                                    )}
+                                    <p className="text-xs text-slate-500">Semua studio bisa memilih "Ikuti Pengaturan API" agar memakai model default ini.</p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                        type="password"
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
                                     className="flex-grow block w-full bg-slate-700/50 border-slate-600 rounded-md shadow-sm py-2.5 px-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition"

@@ -135,10 +135,10 @@ const PhotoVideoStudio: React.FC = () => {
     const [videoPrompt, setVideoPrompt] = useState('');
     const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
         const saved = sessionStorage.getItem('photoVideoModelProfile');
-        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+        if (saved === 'api-default' || saved === 'pro' || saved === 'ultra' || saved === 'flash') {
             return saved;
         }
-        return 'flash';
+        return 'api-default';
     });
     const [savedPrompts, setSavedPrompts] = useState<{ [key: string]: boolean }>({});
     const [copiedType, setCopiedType] = useState<string | null>(null);
