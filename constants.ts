@@ -77,3 +77,9 @@ export const BRAND_ROLES = [
   { id: 'kreator', label: 'Kreator / Personal Brand' },
   { id: 'afiliasi', label: 'Afiliator' },
 ];
+
+export const GEMINI_MODEL_OPTIONS = [
+  { value: 'flash', label: 'Flash (Cepat)' },
+  { value: 'pro', label: 'Pro (Kualitas Tinggi)' },
+  { value: 'ultra', label: 'Ultra (Kualitas Maksimal)' },
+];

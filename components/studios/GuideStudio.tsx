@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BRAND_ROLES } from '../../constants.ts';
-import { GoogleGenAI } from "@google/genai";
+import { validateGeminiApiKey } from '../../services/geminiService.ts';
 
 type BrandRole = 'produk' | 'kreator' | 'afiliasi';
 
@@ -40,21 +40,18 @@ const GuideStudio: React.FC = () => {
     }, []);
 
     const handleSaveApiKey = () => {
-        if (apiKey.trim()) {
-            sessionStorage.setItem('geminiApiKey', apiKey.trim());
+        const trimmedKey = apiKey.trim();
+        if (trimmedKey) {
+            sessionStorage.setItem('geminiApiKey', trimmedKey);
             setApiKeyStatus({ message: 'Kunci API berhasil disimpan untuk sesi ini!', type: 'success' });
             // Auto-trigger validation logic after save
-            validateApiKey(apiKey.trim());
+            validateApiKey(trimmedKey);
         } else {
             sessionStorage.removeItem('geminiApiKey');
             setApiKeyStatus({ message: 'Kunci API yang tersimpan telah dihapus.', type: 'info' });
             setQuotaCheckStatus('idle');
         }
-        setTimeout(() => {
-            if (apiKeyStatus.type === 'success') {
-                setApiKeyStatus(prev => ({ ...prev, message: '' })); 
-            }
-        }, 4000);
+        setTimeout(() => setApiKeyStatus(prev => (prev.type === 'success' ? { ...prev, message: '' } : prev)), 4000);
     };
 
     const validateApiKey = async (key: string) => {
@@ -62,29 +59,21 @@ const GuideStudio: React.FC = () => {
         setApiKeyStatus({ message: 'Memvalidasi kunci API dan jenis quota...', type: 'info' });
         
         try {
-            const ai = new GoogleGenAI({ apiKey: key });
-            // Test call to validate key and infer quota status from response headers (if available) or success
-            await ai.models.generateContent({
-                model: 'gemini-2.0-flash-exp',
-                contents: 'Test'
-            });
+            const result = await validateGeminiApiKey(key, { profile: 'flash' });
+            if (result.ok) {
+                setQuotaCheckStatus('valid');
+                setApiKeyStatus({ message: 'API Valid! Silakan verifikasi jenis quota Anda di bawah.', type: 'success' });
+                return;
+            }
 
-            // If success, we assume at least it works. 
-            // We can't strictly detect "Free vs Paid" via simple API call without hitting limits or metadata.
-            // So we rely on the manual check for the visual part, but the API check confirms it's active.
-            setQuotaCheckStatus('valid');
-            setApiKeyStatus({ message: 'API Valid! Silakan verifikasi jenis quota Anda di bawah.', type: 'success' });
+            setQuotaCheckStatus('invalid');
+            setApiKeyStatus({ message: `Validasi Gagal: ${result.message}`, type: 'error' });
 
-        } catch (error: any) {
+        } catch (error) {
             console.error("API Validation failed", error);
             setQuotaCheckStatus('invalid');
-            if (error.message?.includes('429')) {
-                setApiKeyStatus({ message: 'Validasi Gagal: Quota Terlampaui (429). Cek limit Free Tier Anda.', type: 'error' });
-            } else if (error.message?.includes('403') || error.message?.includes('API key not valid')) {
-                setApiKeyStatus({ message: 'Validasi Gagal: Kunci API tidak valid.', type: 'error' });
-            } else {
-                setApiKeyStatus({ message: `Validasi Gagal: ${error.message || 'Terjadi kesalahan'}`, type: 'error' });
-            }
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan';
+            setApiKeyStatus({ message: `Validasi Gagal: ${message}`, type: 'error' });
         }
     };
 

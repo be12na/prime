@@ -1,6 +1,8 @@
 
 export type Studio = 'photo-video' | 'product-launch' | 'live' | 'post' | 'analytic' | 'guide' | 'history';
 
+export type GeminiModelProfile = 'flash' | 'pro' | 'ultra';
+
 export interface LiveProduct {
   id: number;
   name: string;

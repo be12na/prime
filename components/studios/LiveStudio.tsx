@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { LIVE_OPTIONS } from '../../constants.ts';
-import { generateLiveScript, generatePepTalk } from '../../services/geminiService.ts';
+import { LIVE_OPTIONS, GEMINI_MODEL_OPTIONS } from '../../constants.ts';
+import { generateLiveScript, generatePepTalk, getUserFriendlyErrorMessage } from '../../services/geminiService.ts';
 import { savePrompt } from '../../services/promptHistoryService.ts';
-import { LiveProduct, TimelineSegment } from '../../types.ts';
+import { GeminiModelProfile, LiveProduct, TimelineSegment } from '../../types.ts';
 
 type LiveMode = 'shopping' | 'gift' | 'qa';
 
@@ -18,6 +18,13 @@ const LiveStudio: React.FC = () => {
     const [pepTalk, setPepTalk] = useState('');
     const [isScriptSaved, setIsScriptSaved] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
+        const saved = sessionStorage.getItem('liveModelProfile');
+        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+            return saved;
+        }
+        return 'flash';
+    });
     
     const [shoppingForm, setShoppingForm] = useState({
         goal: LIVE_OPTIONS.goal[0],
@@ -104,6 +111,7 @@ const LiveStudio: React.FC = () => {
         setIsLoading(true);
         setTimeline([]);
         setErrorMessage('');
+        sessionStorage.setItem('liveModelProfile', selectedModel);
         try {
             let specificFormData = {};
             switch (activeTab) {
@@ -118,7 +126,7 @@ const LiveStudio: React.FC = () => {
                 mentalNote: `Host feels ${mentalForm.mood} because: ${mentalForm.reason}`,
                 ...specificFormData,
             };
-            const resultJson = await generateLiveScript(formData);
+            const resultJson = await generateLiveScript(formData, { profile: selectedModel });
             const result = JSON.parse(resultJson);
             if (result.timeline) {
                 setTimeline(result.timeline);
@@ -126,9 +134,9 @@ const LiveStudio: React.FC = () => {
             } else {
                 setErrorMessage(`Gagal membuat skrip: ${result.error || "Format respons tidak valid."}`);
             }
-        } catch(e) {
-            console.error("Failed to parse timeline JSON:", e);
-            setErrorMessage("Gagal memproses respons dari AI. Silakan coba lagi.");
+        } catch (error) {
+            const msg = getUserFriendlyErrorMessage(error);
+            setErrorMessage(msg);
         } finally {
             setIsLoading(false);
         }
@@ -142,7 +150,7 @@ const LiveStudio: React.FC = () => {
             const talk = await generatePepTalk(mentalForm.mood, mentalForm.reason);
             setPepTalk(talk);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Terjadi kesalahan.';
+            const msg = getUserFriendlyErrorMessage(error);
             setPepTalk(`Error: ${msg}`);
         } finally {
             setIsPepTalkLoading(false);
@@ -278,6 +286,19 @@ const LiveStudio: React.FC = () => {
                             <div id="live-script-mode-group" className="flex items-center space-x-2 bg-slate-700/50 rounded-lg p-1 h-auto">
                                 {LIVE_OPTIONS.scriptMode.map(mode => <button key={mode.id} onClick={()=>setScriptMode(mode.id)} className={`flex-1 text-sm rounded-md py-1.5 transition-colors ${scriptMode === mode.id ? 'bg-orange-500 text-white' : 'hover:bg-slate-600 text-slate-300'}`}>{mode.label}</button>)}
                             </div>
+                        </div>
+                        <div className="space-y-2 pt-4 border-t border-slate-700">
+                            <label htmlFor="live-model-profile" className="block text-sm font-medium text-slate-400">Model Gemini</label>
+                            <select
+                                id="live-model-profile"
+                                value={selectedModel}
+                                onChange={(e) => setSelectedModel(e.target.value as GeminiModelProfile)}
+                                className="block w-full bg-slate-700/50 border-slate-600 rounded-md shadow-sm py-2.5 px-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition"
+                            >
+                                {GEMINI_MODEL_OPTIONS.map((model) => (
+                                    <option key={model.value} value={model.value}>{model.label}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="pt-6">
                           <button id="generate-live-button" onClick={handleGenerateScript} disabled={isLoading} className="w-full inline-flex items-center justify-center px-12 py-4 text-lg font-semibold text-white bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg shadow-lg shadow-orange-500/40 hover:shadow-xl hover:shadow-orange-500/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-orange-500 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 disabled:from-slate-600 disabled:to-slate-600 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed">

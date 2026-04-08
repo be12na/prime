@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { POST_OPTIONS } from '../../constants.ts';
-import { generateSocialPost } from '../../services/geminiService.ts';
+import { POST_OPTIONS, GEMINI_MODEL_OPTIONS } from '../../constants.ts';
+import { generateSocialPost, getUserFriendlyErrorMessage } from '../../services/geminiService.ts';
 import { savePrompt } from '../../services/promptHistoryService.ts';
+import { GeminiModelProfile } from '../../types.ts';
 import Markdown from 'react-markdown';
 
 type PostMode = 'product' | 'creator' | 'affiliate' | 'literacy';
@@ -18,6 +19,13 @@ const PostStudio: React.FC = () => {
     const [useTrends, setUseTrends] = useState(false);
     const [savedStatuses, setSavedStatuses] = useState<{ [key: string]: boolean }>({});
     const [errorMessage, setErrorMessage] = useState('');
+    const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
+        const saved = sessionStorage.getItem('postModelProfile');
+        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+            return saved;
+        }
+        return 'flash';
+    });
 
 
     const [formState, setFormState] = useState({
@@ -36,35 +44,47 @@ const PostStudio: React.FC = () => {
     
     const parseMarkdownOutput = (markdown: string): ParsedOutput[] => {
         if (!markdown || typeof markdown !== 'string') return [];
-        const sections = markdown.split(/\n## /).filter(s => s.trim() !== '');
-        
-        return sections.map(section => {
-            const parts = section.split('\n');
-            const title = parts[0].replace(/[*_]/g, '').trim();
-            const content = parts.slice(1).join('\n').trim();
+        const normalized = markdown.replace(/\r\n/g, '\n').trim();
+        const headingRegex = /(?:^|\n)(##)\s+(.+)/g;
+        const matches = [...normalized.matchAll(headingRegex)];
+
+        if (matches.length === 0) {
+            return [];
+        }
+
+        const sections = matches.map((match, index) => {
+            const fullMatch = match[0];
+            const title = (match[2] || '').trim();
+            const start = (match.index ?? 0) + fullMatch.length;
+            const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
+            const content = normalized.slice(start, end).trim();
             return { title, content };
-        }).filter(s => s.title && s.content);
+        });
+        
+        return sections
+            .map(section => ({
+                title: section.title.replace(/[*_]/g, ''),
+                content: section.content,
+            }))
+            .filter(s => s.title && s.content);
     };
 
     const handleGenerate = async () => {
         setIsLoading(true);
         setParsedOutput([]);
         setErrorMessage('');
+        sessionStorage.setItem('postModelProfile', selectedModel);
         try {
             const dataToSend = { type: activeTab, ...formState[activeTab] };
-            const result = await generateSocialPost(dataToSend, useTrends);
-            if (result.startsWith('Error:')) {
-                setErrorMessage(result);
+            const result = await generateSocialPost(dataToSend, useTrends, { profile: selectedModel });
+            const parsed = parseMarkdownOutput(result);
+            if (parsed.length === 0) {
+                setErrorMessage('AI tidak menghasilkan output yang valid. Silakan coba lagi.');
             } else {
-                const parsed = parseMarkdownOutput(result);
-                if (parsed.length === 0) {
-                    setErrorMessage('AI tidak menghasilkan output yang valid. Silakan coba lagi.');
-                } else {
-                    setParsedOutput(parsed);
-                }
+                setParsedOutput(parsed);
             }
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Terjadi kesalahan.';
+            const msg = getUserFriendlyErrorMessage(error);
             setErrorMessage(`Error: ${msg}`);
         } finally {
             setIsLoading(false);
@@ -184,6 +204,19 @@ const PostStudio: React.FC = () => {
                   </div>
 
                   <div className="pt-6 border-t border-slate-700 space-y-4">
+                      <div>
+                          <label htmlFor="post-model-profile" className="block text-sm font-medium text-slate-400 mb-2">Model Gemini</label>
+                          <select
+                              id="post-model-profile"
+                              value={selectedModel}
+                              onChange={(e) => setSelectedModel(e.target.value as GeminiModelProfile)}
+                              className="block w-full bg-slate-700/50 border-slate-600 rounded-md py-2.5 px-4 text-slate-100 sm:text-sm transition focus:ring-orange-500 focus:border-orange-500"
+                          >
+                              {GEMINI_MODEL_OPTIONS.map((model) => (
+                                  <option key={model.value} value={model.value}>{model.label}</option>
+                              ))}
+                          </select>
+                      </div>
                       <div className="flex items-center justify-between">
                           <label htmlFor="post-use-trends" className="flex items-center gap-2 text-sm font-medium text-slate-400 cursor-pointer">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>

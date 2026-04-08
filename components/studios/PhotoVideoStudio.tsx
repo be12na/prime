@@ -1,9 +1,10 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 // Fix: Corrected typo from PHOTO_VIDEO_MANual_OPTIONS to PHOTO_VIDEO_MANUAL_OPTIONS
-import { PHOTO_VIDEO_MANUAL_OPTIONS as OPTIONS } from '../../constants.ts';
-import { generatePhotoVideoPrompt } from '../../services/geminiService.ts';
+import { PHOTO_VIDEO_MANUAL_OPTIONS as OPTIONS, GEMINI_MODEL_OPTIONS } from '../../constants.ts';
+import { generatePhotoVideoPrompt, getUserFriendlyErrorMessage } from '../../services/geminiService.ts';
 import { savePrompt } from '../../services/promptHistoryService.ts';
+import { GeminiModelProfile } from '../../types.ts';
 
 type FormState = {
     concept: string;
@@ -132,6 +133,13 @@ const PhotoVideoStudio: React.FC = () => {
     
     const [photoPrompt, setPhotoPrompt] = useState('');
     const [videoPrompt, setVideoPrompt] = useState('');
+    const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
+        const saved = sessionStorage.getItem('photoVideoModelProfile');
+        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+            return saved;
+        }
+        return 'flash';
+    });
     const [savedPrompts, setSavedPrompts] = useState<{ [key: string]: boolean }>({});
     const [copiedType, setCopiedType] = useState<string | null>(null);
 
@@ -192,17 +200,16 @@ const PhotoVideoStudio: React.FC = () => {
         setIsLoading(true);
         setPhotoPrompt('');
         setVideoPrompt('');
-        setGeneratedImage('');
-        setImageGenStatus('');
+        sessionStorage.setItem('photoVideoModelProfile', selectedModel);
         try {
             const dataToSend = activeTab === 'manual' 
                 ? { ...formState, modelImageBase64: manualModelImage?.base64 || '', modelImageMimeType: manualModelImage?.mimeType || '', productImageBase64: manualProductImage?.base64 || '', productImageMimeType: manualProductImage?.mimeType || '' }
                 : aiFormState;
-            const result = await generatePhotoVideoPrompt(dataToSend, activeTab);
+            const result = await generatePhotoVideoPrompt(dataToSend, activeTab, { profile: selectedModel });
             setPhotoPrompt(result.photo);
             setVideoPrompt(result.video);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Terjadi kesalahan.';
+            const msg = getUserFriendlyErrorMessage(error);
             setPhotoPrompt(`Error: ${msg}`);
             setVideoPrompt(`Error: ${msg}`);
         } finally {
@@ -509,6 +516,19 @@ const PhotoVideoStudio: React.FC = () => {
 
             <div className="space-y-4 pt-8 border-t border-slate-700">
               <h3 className="flex items-center text-lg font-semibold gap-3 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-400">Pengaturan Output</h3>
+              <div>
+                  <label htmlFor="photo-video-model-profile" className="block text-sm font-medium text-slate-400 mb-2">Model Gemini</label>
+                  <select
+                      id="photo-video-model-profile"
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value as GeminiModelProfile)}
+                      className="block w-full bg-slate-700/50 border-slate-600 rounded-md shadow-sm py-2.5 px-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:text-sm transition"
+                  >
+                      {GEMINI_MODEL_OPTIONS.map((model) => (
+                          <option key={model.value} value={model.value}>{model.label}</option>
+                      ))}
+                  </select>
+              </div>
               <div id="aspect-ratio-group" className="flex items-center space-x-2 bg-slate-700/50 rounded-lg p-1 h-[42px]">
                   {OPTIONS.aspectRatio.map(ratio => (
                       <button 

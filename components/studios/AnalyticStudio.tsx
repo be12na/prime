@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { analyzePerformance } from '../../services/geminiService.ts';
+import { GEMINI_MODEL_OPTIONS } from '../../constants.ts';
+import { analyzePerformance, getUserFriendlyErrorMessage } from '../../services/geminiService.ts';
+import { GeminiModelProfile } from '../../types.ts';
 import Markdown from 'react-markdown';
 
 interface ParsedOutput {
@@ -11,6 +13,13 @@ const AnalyticStudio: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [parsedOutput, setParsedOutput] = useState<ParsedOutput[]>([]);
     const [errorMessage, setErrorMessage] = useState('');
+    const [selectedModel, setSelectedModel] = useState<GeminiModelProfile>(() => {
+        const saved = sessionStorage.getItem('analyticModelProfile');
+        if (saved === 'pro' || saved === 'ultra' || saved === 'flash') {
+            return saved;
+        }
+        return 'flash';
+    });
     const [formState, setFormState] = useState({
         transcript: '',
         views: '',
@@ -38,35 +47,46 @@ const AnalyticStudio: React.FC = () => {
 
     const parseMarkdownOutput = (markdown: string): ParsedOutput[] => {
         if (!markdown || typeof markdown !== 'string') return [];
-        // Split by markdown headings (###)
-        const sections = markdown.split(/\n### /).filter(s => s.trim() !== '');
-        
-        return sections.map(section => {
-            const parts = section.split('\n');
-            const title = parts[0].replace(/[*_]/g, '').trim();
-            const content = parts.slice(1).join('\n').trim();
+        const normalized = markdown.replace(/\r\n/g, '\n').trim();
+        const headingRegex = /(?:^|\n)(###)\s+(.+)/g;
+        const matches = [...normalized.matchAll(headingRegex)];
+
+        if (matches.length === 0) {
+            return [];
+        }
+
+        const sections = matches.map((match, index) => {
+            const fullMatch = match[0];
+            const title = (match[2] || '').trim();
+            const start = (match.index ?? 0) + fullMatch.length;
+            const end = index + 1 < matches.length ? (matches[index + 1].index ?? normalized.length) : normalized.length;
+            const content = normalized.slice(start, end).trim();
             return { title, content };
-        }).filter(s => s.title && s.content);
+        });
+        
+        return sections
+            .map(section => ({
+                title: section.title.replace(/[*_]/g, ''),
+                content: section.content,
+            }))
+            .filter(s => s.title && s.content);
     };
 
     const handleGenerate = async () => {
         setIsLoading(true);
         setParsedOutput([]);
         setErrorMessage('');
+        sessionStorage.setItem('analyticModelProfile', selectedModel);
         try {
-            const result = await analyzePerformance(formState);
-            if (result.startsWith('Error:')) {
-                setErrorMessage(result);
+            const result = await analyzePerformance(formState, { profile: selectedModel });
+            const parsed = parseMarkdownOutput(result);
+            if (parsed.length === 0) {
+                setErrorMessage('AI tidak menghasilkan output yang valid. Silakan coba lagi.');
             } else {
-                const parsed = parseMarkdownOutput(result);
-                if (parsed.length === 0) {
-                    setErrorMessage('AI tidak menghasilkan output yang valid. Silakan coba lagi.');
-                } else {
-                    setParsedOutput(parsed);
-                }
+                setParsedOutput(parsed);
             }
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Terjadi kesalahan.';
+            const msg = getUserFriendlyErrorMessage(error);
             setErrorMessage(`Error: ${msg}`);
         } finally {
             setIsLoading(false);
@@ -136,6 +156,19 @@ const AnalyticStudio: React.FC = () => {
                     </div>
                 </div>
                 <div className="pt-4">
+                    <div className="mb-4">
+                        <label htmlFor="analytic-model-profile" className="block text-sm font-medium text-slate-400 mb-2">Model Gemini</label>
+                        <select
+                            id="analytic-model-profile"
+                            value={selectedModel}
+                            onChange={(e) => setSelectedModel(e.target.value as GeminiModelProfile)}
+                            className="block w-full bg-slate-700/50 border-slate-600 rounded-md py-2.5 px-4 text-slate-100 sm:text-sm transition focus:ring-orange-500 focus:border-orange-500"
+                        >
+                            {GEMINI_MODEL_OPTIONS.map((model) => (
+                                <option key={model.value} value={model.value}>{model.label}</option>
+                            ))}
+                        </select>
+                    </div>
                     <button id="generate-analytic-button" onClick={handleGenerate} disabled={isLoading} className="w-full inline-flex items-center justify-center px-12 py-4 text-lg font-semibold text-white bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg shadow-lg shadow-orange-500/40 hover:shadow-xl hover:shadow-orange-500/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-orange-500 transition-all duration-300 ease-in-out transform hover:-translate-y-0.5 disabled:from-slate-600 disabled:to-slate-600 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed">
                         {isLoading && <svg id="spinner-icon-analytic" className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
                         <span id="button-text-analytic">{isLoading ? 'Menganalisis...' : 'Analisis Performa'}</span>
